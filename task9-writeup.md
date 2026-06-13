@@ -1,4 +1,4 @@
-# Nautilus Onboarding — Task 9 Writeup (RL Testing / Benchmark Framework)
+# Task 9 Writeup
 
 GitHub: https://github.com/ndontubo/task9rlbenchmark
 
@@ -7,14 +7,13 @@ GitHub: https://github.com/ndontubo/task9rlbenchmark
 Task 9 was to build a single-file, "one-click" framework that benchmarks all of my
 RL algorithms on the same environment in one run, and that automatically produces
 graphs of the results (reward, loss, and policy). Unlike Tasks 6–8, this task is not
-another algorithm — it is the comparison *infrastructure* that runs the algorithms I
+another algorithm. It is the comparison *infrastructure* that runs the algorithms I
 already wrote and puts their results side by side. The deliverable is this one-page
 writeup, the GitHub repo, and the plots.
 
 ## Creating the framework
 
-The framework is `rl_benchmark.py`, a single file that wraps — rather than
-reimplements — the three validated agents from earlier tasks:
+The framework is `rl_benchmark.py`, a single file that wraps the three validated agents from earlier tasks without reimplementation:
 
 | Key | Wrapped script | Algorithm |
 |---|---|---|
@@ -28,14 +27,14 @@ the three scripts each define their own `CNNActorCritic`/`MLPActorCritic` classe
 use different env preprocessing, so they cannot share one namespace without rewriting
 code I had already validated. Subprocesses run my real code unchanged and isolate RNG
 and CUDA state between runs. Second, running them sequentially is the only thing that
-works on a `ReadWriteOnce` PVC, which is mounted by one pod at a time — so the task's
+works on a `ReadWriteOnce` PVC, which is mounted by one pod at a time so the task's
 "benchmark several algorithms at the same time" means *within one harness
 invocation*, not literally concurrent GPU pods. This is the same constraint I hit in
 Task 7.
 
 The harness then does three things automatically. It **parses** each run's
-TensorBoard event files into a unified schema (the scripts log different tag names —
-PPO's `rollout/ep_reward_mean_10` vs A2C's `rollout/ep_rew_mean` — so the framework
+TensorBoard event files into a unified schema (the scripts log different tag names like
+PPO's `rollout/ep_reward_mean_10` vs A2C's `rollout/ep_rew_mean` so the framework
 maps candidate keys to one metric; all three count steps in env frames, so the x-axis
 is comparable). It **evaluates** each saved checkpoint greedily and records the
 action distribution. And it **plots**: `reward_curves.png` (all algos overlaid),
@@ -46,7 +45,7 @@ The action-distribution panel is the Task 8 lesson built in as a default: a flat
 reward curve there hid an all-GAS single-action collapse that only the action
 histogram revealed, so the framework always renders it. Adding a new algorithm later
 (e.g. DQN, to make this a cross-family on-policy-vs-off-policy benchmark) is a single
-`AlgoSpec` entry — the parse/eval/plot stages are algorithm-agnostic.
+`AlgoSpec` entry. The parse/eval/plot stages are algorithm-agnostic.
 
 ## What is working so far
 
@@ -64,12 +63,9 @@ policies, and produced all three figures with no manual steps:
 Two things to read from this. PPO climbs fastest, as expected for the most
 sample-efficient of the three. More importantly, the **action-distribution panel
 immediately did its job**: on this short run A2C v2 collapsed onto a single action
-(right, 99%) while Task 7 A2C stayed balanced (53/47) — the exact single-action
-collapse signature I diagnosed by hand in Task 8, now caught automatically by the
-framework. (PPO is absent from that panel because `ppo_from_scratch.py` saves no
-checkpoint; one `torch.save` would add it.)
+(right, 99%) while Task 7 A2C stayed balanced (53/47).(PPO is absent from that panel because `ppo_from_scratch.py` saves no checkpoint; one `torch.save` would add it.)
 
-This CartPole run is a **pipeline validation, not a performance verdict** — the
+This CartPole run is a **pipeline validation, not a performance verdict**. The
 numbers are from 12k CPU timesteps, and v2's hyperparameters are tuned for CarRacing,
 so its weak CartPole showing is expected and not meaningful as a comparison.
 
@@ -90,14 +86,13 @@ The main lesson was that a benchmark's real engineering content is *fairness and
 unification*, not the training itself. The three scripts log different metric names,
 checkpoint differently, and preprocess observations differently (PPO uses raw RGB
 single frames; both A2C variants use grayscale 4-frame stacks, and v2 adds
-action-repeat). The honest framing — which I state in the repo and will state at the
-meeting — is that this benchmarks the algorithms *as I implemented them in Tasks 6–8*,
+action-repeat). This benchmarks the algorithms *as I implemented them in Tasks 6–8*,
 an apples-to-apples comparison of my actual agents rather than a controlled
 single-variable ablation. The second lesson reinforced Task 8: a benchmark that only
 plotted reward would be misleading, so the action-distribution panel is a first-class
 output, not an afterthought.
 
-## Artifacts produced
+## Artifacts I made :3
 
 - `rl_benchmark.py` — the single-file, one-click benchmark framework
 - `ndontubo-task9-job.yml` — the Nautilus Job that runs the benchmark
