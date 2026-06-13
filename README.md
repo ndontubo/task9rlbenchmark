@@ -83,7 +83,7 @@ Append one `AlgoSpec` to `build_registry()` with the script name, an `argv`
 builder, the TensorBoard reward/loss tag names it logs, and its checkpoint path.
 Nothing else changes, the parse/eval/plot stages are algorithm-agnostic.
 
-## Fairness caveat (state this in the writeup)
+## Fairness Condition
 
 The wrapped scripts use different observation preprocessing: PPO trains on raw
 96×96×3 RGB single frames; both A2C variants use 4-frame grayscale stacks, and
