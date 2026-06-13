@@ -1,0 +1,51 @@
+# ndontubo-task9-job.yml
+# One-click RL benchmark Job. Runs rl_benchmark.py, which trains PPO, A2C (T7),
+# and A2C v2 (T8) sequentially on CarRacing-v3, then writes comparison plots and
+# a summary table to the PVC.
+#
+# PREREQUISITES (do these once, in order, before applying this Job):
+#   1. PVC exists (reuse the Task 8 PVC, or apply ndontubo-task9-pvc.yml).
+#   2. Dependencies pre-installed onto the PVC at /pvcvolume/python-packages
+#      (gymnasium[box2d], box2d-py, tensorboard, matplotlib) via the installer
+#      pod -- same pattern as Tasks 5-8. torch comes from the image.
+#   3. The four scripts copied onto the PVC root via a shell pod:
+#        rl_benchmark.py  ppo_from_scratch.py  a2c_from_scratch.py  a2c_v2.py
+#      Then DELETE the shell pod so it releases the ReadWriteOnce volume before
+#      this Job mounts it (Task 7 lesson: one pod mounts the PVC at a time).
+#
+# Runtime note: PPO + 2x A2C at 1,000,000 timesteps each on one GPU is several
+# hours. Lower --timesteps for a faster smoke run on the cluster.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ndontubo-task9-benchmark
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: benchmark
+          image: pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
+          workingDir: /pvcvolume
+          command:
+            - "sh"
+            - "-c"
+            - "PYTHONUNBUFFERED=1 PYTHONPATH=/pvcvolume/python-packages python /pvcvolume/rl_benchmark.py --env CarRacing-v3 --timesteps 1000000 --num-envs 8 --n-steps 16 --eval-episodes 20 --outdir /pvcvolume/benchmark_out"
+          resources:
+            requests:
+              cpu: "4"
+              memory: 16Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: pvcvolume
+              mountPath: /pvcvolume
+      volumes:
+        - name: pvcvolume
+          persistentVolumeClaim:
+            claimName: ndontubo-task9

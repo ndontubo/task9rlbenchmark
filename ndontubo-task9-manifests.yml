@@ -1,0 +1,60 @@
+# task9-pvc.yml: 5Gi block-storage volume, ReadWriteOnce.
+# (You can skip this and reuse your existing Task 8 PVC instead; if so, set the
+#  claimName in the installer/shell/job manifests to that PVC's name.)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ndontubo-task9
+spec:
+  storageClassName: rook-ceph-block
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+# task9-installer.yml:  run ONCE to pre-install deps onto the PVC.
+# Installs into /pvcvolume/python-packages so every later Job starts in seconds
+# (Task 5 "Option B" pattern). Delete this pod when it completes.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ndontubo-task9-installer
+spec:
+  restartPolicy: Never
+  containers:
+    - name: installer
+      image: pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
+      command:
+        - "sh"
+        - "-c"
+        - "pip install --target=/pvcvolume/python-packages 'gymnasium[box2d]' box2d-py tensorboard matplotlib && echo INSTALL_DONE"
+      volumeMounts:
+        - name: pvcvolume
+          mountPath: /pvcvolume
+  volumes:
+    - name: pvcvolume
+      persistentVolumeClaim:
+        claimName: ndontubo-task9
+---
+# task9-shell.yml: tiny pod for copying scripts onto / logs off the
+# PVC. Bring it up, `kubectl cp` the four .py files to /pvcvolume, then DELETE it
+# (releases the ReadWriteOnce volume) before running the Job. After the Job
+# finishes, bring it back to copy /pvcvolume/benchmark_out/plots off the cluster.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ndontubo-task9-shell
+spec:
+  restartPolicy: Never
+  containers:
+    - name: shell
+      image: busybox
+      command: ["sh", "-c", "sleep infinity"]
+      volumeMounts:
+        - name: pvcvolume
+          mountPath: /pvcvolume
+  volumes:
+    - name: pvcvolume
+      persistentVolumeClaim:
+        claimName: ndontubo-task9
